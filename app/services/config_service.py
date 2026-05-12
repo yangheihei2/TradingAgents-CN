@@ -2509,6 +2509,22 @@ class ConfigService:
                         "currency": "USD"
                     },
                     {
+                        "name": "gemini-2.5-flash-lite-preview-06-17",
+                        "display_name": "Gemini 2.5 Flash Lite Preview - 超快",
+                        "input_price_per_1k": 0.000075,
+                        "output_price_per_1k": 0.0003,
+                        "context_length": 1000000,
+                        "currency": "USD"
+                    },
+                    {
+                        "name": "gemini-2.0-flash",
+                        "display_name": "Gemini 2.0 Flash",
+                        "input_price_per_1k": 0.000075,
+                        "output_price_per_1k": 0.0003,
+                        "context_length": 1000000,
+                        "currency": "USD"
+                    },
+                    {
                         "name": "gemini-1.5-pro",
                         "display_name": "Gemini 1.5 Pro - 专业版",
                         "input_price_per_1k": 0.00125,
@@ -2531,12 +2547,44 @@ class ConfigService:
                 "provider_name": "DeepSeek",
                 "models": [
                     {
+                        "name": "deepseek-v4-flash",
+                        "display_name": "DeepSeek V4 Flash（推荐默认）",
+                        "description": "官方 V4 快速版；OpenAI 兼容，base_url 不变，仅更换 model 参数",
+                        "input_price_per_1k": 0.0001,
+                        "output_price_per_1k": 0.0002,
+                        "context_length": 1048576,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "thinking_mode"]
+                    },
+                    {
+                        "name": "deepseek-v4-pro",
+                        "display_name": "DeepSeek V4 Pro",
+                        "description": "官方 V4 旗舰版，适合复杂推理与 Agent 任务",
+                        "input_price_per_1k": 0.0002,
+                        "output_price_per_1k": 0.0004,
+                        "context_length": 1048576,
+                        "currency": "CNY",
+                        "capabilities": ["chat", "thinking_mode", "agentic"]
+                    },
+                    {
                         "name": "deepseek-chat",
-                        "display_name": "DeepSeek Chat - 通用对话",
+                        "display_name": "DeepSeek Chat（兼容别名）",
+                        "description": "官方将逐步退役，建议迁移至 deepseek-v4-flash（2026-07-24 UTC 后不可用）",
                         "input_price_per_1k": 0.0001,
                         "output_price_per_1k": 0.0002,
                         "context_length": 32768,
-                        "currency": "CNY"
+                        "currency": "CNY",
+                        "is_deprecated": True
+                    },
+                    {
+                        "name": "deepseek-reasoner",
+                        "display_name": "DeepSeek Reasoner（兼容别名）",
+                        "description": "官方将逐步退役，建议迁移至 deepseek-v4-flash 思考模式（2026-07-24 UTC 后不可用）",
+                        "input_price_per_1k": 0.0001,
+                        "output_price_per_1k": 0.0002,
+                        "context_length": 32768,
+                        "currency": "CNY",
+                        "is_deprecated": True
                     },
                     {
                         "name": "deepseek-coder",
@@ -2701,6 +2749,105 @@ class ConfigService:
             # 失败时返回默认数据
             return self._get_default_model_catalog()
 
+    async def get_deepseek_v4_models_api(self) -> Dict[str, Any]:
+        """
+        返回 DeepSeek V4 系列模型与 OpenAI 兼容 Chat Completions 调用说明，
+        并与数据库中的 deepseek 模型目录合并（价格、描述等）。
+        """
+        curated_models: List[Dict[str, Any]] = [
+            {
+                "name": "deepseek-v4-flash",
+                "role": "default_chat",
+                "display_name": "DeepSeek V4 Flash",
+                "description": "官方推荐默认对话模型；base_url 不变，仅设置 model 为 deepseek-v4-flash。",
+            },
+            {
+                "name": "deepseek-v4-pro",
+                "role": "frontier",
+                "display_name": "DeepSeek V4 Pro",
+                "description": "旗舰推理与 Agent 编程；model 设为 deepseek-v4-pro。",
+            },
+            {
+                "name": "deepseek-chat",
+                "role": "legacy_alias",
+                "display_name": "DeepSeek Chat（兼容别名）",
+                "description": "将逐步退役，建议迁移至 deepseek-v4-flash（官方公告 2026-07-24 UTC 后不可用）。",
+                "is_deprecated": True,
+            },
+            {
+                "name": "deepseek-reasoner",
+                "role": "legacy_alias",
+                "display_name": "DeepSeek Reasoner（兼容别名）",
+                "description": "将逐步退役，建议迁移至 V4 思考模式（官方公告 2026-07-24 UTC 后不可用）。",
+                "is_deprecated": True,
+            },
+        ]
+
+        catalog = await self.get_provider_models("deepseek")
+        by_name: Dict[str, Dict[str, Any]] = {}
+        if catalog:
+            for m in catalog.models:
+                by_name[m.name] = m.model_dump(by_alias=False)
+
+        merged: List[Dict[str, Any]] = []
+        for row in curated_models:
+            base = dict(row)
+            extra = by_name.get(base["name"])
+            if extra:
+                for k, v in extra.items():
+                    if v is not None and k not in base:
+                        base[k] = v
+            merged.append(base)
+
+        return {
+            "family": "deepseek_v4",
+            "openai_chat_completions": {
+                "method": "POST",
+                "url": "https://api.deepseek.com/v1/chat/completions",
+                "headers": {
+                    "Authorization": "Bearer <DEEPSEEK_API_KEY>",
+                    "Content-Type": "application/json",
+                },
+                "body_model_field": "model",
+                "official_docs": "https://api-docs.deepseek.com/",
+            },
+            "legacy_model_retirement_utc": "2026-07-24T15:59:00Z",
+            "legacy_aliases": ["deepseek-chat", "deepseek-reasoner"],
+            "models": merged,
+        }
+
+    async def get_google_gemini_models_api(self) -> Dict[str, Any]:
+        """
+        返回 Google Gemini 模型元数据（适配器侧静态表），并与数据库 google 目录中的定价等字段合并。
+        """
+        from tradingagents.llm_adapters.google_openai_adapter import get_available_google_models
+
+        static_meta = get_available_google_models()
+        catalog = await self.get_provider_models("google")
+        by_name: Dict[str, Dict[str, Any]] = {}
+        if catalog:
+            for m in catalog.models:
+                by_name[m.name] = m.model_dump(by_alias=False)
+
+        models_out: List[Dict[str, Any]] = []
+        for name, meta in static_meta.items():
+            row: Dict[str, Any] = {"name": name, **meta}
+            if name in by_name:
+                row["catalog"] = by_name[name]
+            models_out.append(row)
+
+        return {
+            "family": "google_gemini",
+            "generate_content": {
+                "method": "POST",
+                "url_template": (
+                    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    "?key=<GOOGLE_API_KEY>"
+                ),
+                "official_docs": "https://ai.google.dev/gemini-api/docs",
+            },
+            "models": models_out,
+        }
 
     async def set_default_llm(self, model_name: str) -> bool:
         """设置默认大模型"""
@@ -3371,7 +3518,7 @@ class ConfigService:
 
             # 如果没有指定模型，使用默认模型
             if not model_name:
-                model_name = "gemini-2.0-flash-exp"
+                model_name = "gemini-2.5-flash"
                 logger.info(f"⚠️ 未指定模型，使用默认模型: {model_name}")
 
             logger.info(f"🔍 [Google AI 测试] 开始测试")
@@ -3550,12 +3697,12 @@ class ConfigService:
 
             # 如果没有指定模型，使用默认模型
             if not model_name:
-                model_name = "deepseek-chat"
+                model_name = "deepseek-v4-flash"
                 logger.info(f"⚠️ 未指定模型，使用默认模型: {model_name}")
 
             logger.info(f"🔍 [DeepSeek 测试] 使用模型: {model_name}")
 
-            url = "https://api.deepseek.com/chat/completions"
+            url = "https://api.deepseek.com/v1/chat/completions"
 
             headers = {
                 "Content-Type": "application/json",

@@ -1963,6 +1963,34 @@ async def get_available_models(
         )
 
 
+@router.get("/llm-models/deepseek-v4", response_model=dict)
+async def get_deepseek_v4_models_api(
+    current_user: User = Depends(get_current_user),
+):
+    """DeepSeek V4：模型 ID、兼容调用方式，并与库内 deepseek 模型目录合并。"""
+    try:
+        return await config_service.get_deepseek_v4_models_api()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取 DeepSeek V4 模型接口信息失败: {str(e)}",
+        )
+
+
+@router.get("/llm-models/google-gemini", response_model=dict)
+async def get_google_gemini_models_api(
+    current_user: User = Depends(get_current_user),
+):
+    """Google Gemini：适配器支持的模型元数据与 generateContent 调用模板。"""
+    try:
+        return await config_service.get_google_gemini_models_api()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取 Gemini 模型接口信息失败: {str(e)}",
+        )
+
+
 # ========== 模型目录管理 ==========
 
 @router.get("/model-catalog", response_model=List[Dict[str, Any]])

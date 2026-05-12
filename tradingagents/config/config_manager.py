@@ -256,8 +256,11 @@ class ConfigManager:
                 PricingConfig("dashscope", "qwen-plus-latest", 0.004, 0.012, "CNY"),
                 PricingConfig("dashscope", "qwen-max", 0.02, 0.06, "CNY"),
 
-                # DeepSeek定价 (人民币) - 2025年最新价格
+                # DeepSeek定价 (人民币) — V4 与兼容别名（单价为占位，请以账单为准）
+                PricingConfig("deepseek", "deepseek-v4-flash", 0.0014, 0.0028, "CNY"),
+                PricingConfig("deepseek", "deepseek-v4-pro", 0.002, 0.004, "CNY"),
                 PricingConfig("deepseek", "deepseek-chat", 0.0014, 0.0028, "CNY"),
+                PricingConfig("deepseek", "deepseek-reasoner", 0.0014, 0.0028, "CNY"),
                 PricingConfig("deepseek", "deepseek-coder", 0.0014, 0.0028, "CNY"),
 
                 # OpenAI定价 (美元)
